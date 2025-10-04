@@ -14,25 +14,30 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Disable Docker BuildKit
+        run: |
+          echo "DOCKER_BUILDKIT=0" >> $GITHUB_ENV
+          echo "COMPOSE_DOCKER_CLI_BUILD=0" >> $GITHUB_ENV
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
-      - name: Install Buildozer dependencies
+      - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3-pip openjdk-17-jdk unzip zip
+          sudo apt-get install -y python3-pip openjdk-17-jdk unzip zip libffi-dev libssl-dev git
 
       - name: Install Buildozer
         run: |
           pip install buildozer cython virtualenv
 
-      - name: Build APK inside Docker (kivy/buildozer)
+      - name: Build APK using Kivy Buildozer Docker
         run: |
-          docker run --rm -v ${{ github.workspace }}:/app -w /app kivy/buildozer buildozer -v android debug
+          docker run --rm -v ${{ github.workspace }}:/app -w /app kivy/buildozer:latest buildozer android debug
 
-      - name: Upload APK artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: Мониторинг-сервера-HA-APK
