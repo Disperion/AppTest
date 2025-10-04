@@ -1,1 +1,48 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker build (pycontribs/buildozer)
+        run: |
+          echo "Starting build in Docker (pycontribs/buildozer)..."
+          # Run buildozer inside docker container; mount repo to /home/user/hostcwd
+          docker pull pycontribs/buildozer:latest
+
+      - name: Run buildozer in Docker
+        run: |
+          # ensure the project dir is accessible and run buildozer android debug
+          docker run --rm \
+            -v "${{ github.workspace }}":/home/user/hostcwd \
+            -w /home/user/hostcwd \
+            pycontribs/buildozer:latest \
+            /bin/bash -lc "buildozer -v android debug"
+        env:
+          HOME: /root
+
+      - name: Find APK and upload artifact
+        run: |
+          echo "Looking for generated APKs..."
+          ls -la
+          find . -type f -name "*.apk" -print > apks.txt || true
+          cat apks.txt || true
+        continue-on-error: true
+
+      - name: Upload APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: hamonitor-apks
+          path: |
+            bin/*.apk
+            *.apk
+            $(pwd)/bin/*.apk
 
