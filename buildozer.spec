@@ -10,6 +10,8 @@ orientation = portrait
 fullscreen = 0
 android.api = 33
 android.minapi = 27
+android.ndk = 25b
 android.arch = armeabi-v7a
 android.permissions = INTERNET
 icon.filename = assets/app.png
+
