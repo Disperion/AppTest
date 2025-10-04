@@ -32,23 +32,28 @@ jobs:
         run: |
           mkdir -p $HOME/.buildozer/android/platform
           cd $HOME/.buildozer/android/platform
+
+          # Скачать инструменты командной строки
           wget https://dl.google.com/android/repository/commandlinetools-linux-10406996_latest.zip -O cmdline-tools.zip
-          unzip -q cmdline-tools.zip -d cmdline-tools
-          mkdir -p cmdline-tools/latest
-          mv cmdline-tools/cmdline-tools/* cmdline-tools/latest/
+          unzip -q cmdline-tools.zip -d android-sdk
+          mkdir -p android-sdk/cmdline-tools/latest
+          mv android-sdk/cmdline-tools/* android-sdk/cmdline-tools/latest/ || true
+
           export ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
-          mkdir -p $ANDROID_SDK_ROOT
-          yes | $HOME/.buildozer/android/platform/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_SDK_ROOT --licenses
-          yes | $HOME/.buildozer/android/platform/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_SDK_ROOT \
-            "platform-tools" "build-tools;34.0.0" "platforms;android-34" "ndk;25.2.9519653"
+          export PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH
+
+          yes | sdkmanager --licenses
+          yes | sdkmanager "platform-tools" "build-tools;34.0.0" "platforms;android-34" "ndk;25.2.9519653"
+
+          # Симлинк для совместимости с Buildozer (он ищет sdkmanager в старом месте)
+          mkdir -p $ANDROID_SDK_ROOT/tools/bin
+          ln -s $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager $ANDROID_SDK_ROOT/tools/bin/sdkmanager
 
       - name: Verify Buildozer environment
-        run: |
-          buildozer -v android debug || echo "Buildozer initial check done"
+        run: buildozer -v android debug || echo "Environment verified"
 
       - name: Build APK (Мониторинг сервера HA)
-        run: |
-          buildozer android debug
+        run: buildozer android debug
 
       - name: Upload built APK
         uses: actions/upload-artifact@v4
