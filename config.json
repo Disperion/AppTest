@@ -1,0 +1,6 @@
+{
+  "ha_url": "http://homeassistant.local:8123",
+  "ha_token": "",
+  "entity_cpu": "sensor.processor_temperature",
+  "entity_ram": "sensor.memory_use_percent"
+}
