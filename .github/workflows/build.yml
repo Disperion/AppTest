@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04  # стабильный runner, где работает Buildozer
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout repository
@@ -25,8 +25,7 @@ jobs:
           sudo apt-get install -y \
             python3-pip \
             openjdk-17-jdk \
-            zip unzip \
-            git \
+            zip unzip git \
             libffi-dev \
             libssl-dev \
             liblzma-dev \
@@ -40,17 +39,25 @@ jobs:
           pip install --upgrade pip
           pip install buildozer cython virtualenv
 
-      - name: Initialize Buildozer
+      - name: Set up Android SDK
         run: |
-          buildozer init || true
-
-      - name: Accept Android SDK Licenses
-        run: |
-          mkdir -p ~/.android
-          touch ~/.android/repositories.cfg
-          yes | sdkmanager --licenses || true
+          mkdir -p "$HOME/android-sdk"
+          export ANDROID_HOME=$HOME/android-sdk
+          export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
+          mkdir -p "$ANDROID_HOME/cmdline-tools/latest"
+          cd "$ANDROID_HOME/cmdline-tools/latest"
+          curl -s https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -o sdk.zip
+          unzip sdk.zip >/dev/null
+          rm sdk.zip
+          yes | sdkmanager --sdk_root=$ANDROID_HOME --licenses || true
+          yes | sdkmanager --sdk_root=$ANDROID_HOME "platform-tools" "platforms;android-34" "build-tools;36.1.0"
 
       - name: Build APK
+        env:
+          ANDROIDSDK: ${{ runner.temp }}/android-sdk
+          ANDROIDNDK: ${{ runner.temp }}/android-ndk
+          ANDROID_HOME: ${{ runner.temp }}/android-sdk
+          PATH: ${{ runner.temp }}/android-sdk/platform-tools:${{ runner.temp }}/android-sdk/cmdline-tools/latest/bin:$PATH
         run: |
           buildozer -v android debug
 
