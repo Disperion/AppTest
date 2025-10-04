@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04  # используем стабильный runner, где Buildozer работает
+    runs-on: ubuntu-22.04  # стабильный runner, где работает Buildozer
 
     steps:
       - name: Checkout repository
@@ -43,6 +43,12 @@ jobs:
       - name: Initialize Buildozer
         run: |
           buildozer init || true
+
+      - name: Accept Android SDK Licenses
+        run: |
+          mkdir -p ~/.android
+          touch ~/.android/repositories.cfg
+          yes | sdkmanager --licenses || true
 
       - name: Build APK
         run: |
