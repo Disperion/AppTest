@@ -2,47 +2,38 @@ name: Build Android APK
 
 on:
   push:
-    branches: [ main, master ]
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
-  build-apk:
+  build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Docker build (pycontribs/buildozer)
-        run: |
-          echo "Starting build in Docker (pycontribs/buildozer)..."
-          # Run buildozer inside docker container; mount repo to /home/user/hostcwd
-          docker pull pycontribs/buildozer:latest
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
 
-      - name: Run buildozer in Docker
+      - name: Install Buildozer dependencies
         run: |
-          # ensure the project dir is accessible and run buildozer android debug
-          docker run --rm \
-            -v "${{ github.workspace }}":/home/user/hostcwd \
-            -w /home/user/hostcwd \
-            pycontribs/buildozer:latest \
-            /bin/bash -lc "buildozer -v android debug"
-        env:
-          HOME: /root
+          sudo apt-get update
+          sudo apt-get install -y python3-pip openjdk-17-jdk unzip zip
 
-      - name: Find APK and upload artifact
+      - name: Install Buildozer
         run: |
-          echo "Looking for generated APKs..."
-          ls -la
-          find . -type f -name "*.apk" -print > apks.txt || true
-          cat apks.txt || true
-        continue-on-error: true
+          pip install buildozer cython virtualenv
 
-      - name: Upload APKs
+      - name: Build APK inside Docker (kivy/buildozer)
+        run: |
+          docker run --rm -v ${{ github.workspace }}:/app -w /app kivy/buildozer buildozer -v android debug
+
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: hamonitor-apks
-          path: |
-            bin/*.apk
-            *.apk
-            $(pwd)/bin/*.apk
-
+          name: Мониторинг-сервера-HA-APK
+          path: bin/*.apk
