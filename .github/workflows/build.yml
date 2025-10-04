@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04  # ✅ стабильнее чем 24.04
 
     steps:
       - name: Checkout repository
@@ -24,19 +24,19 @@ jobs:
           sudo apt-get install -y \
             git zip unzip openjdk-17-jdk python3-pip \
             libffi-dev libssl-dev libsqlite3-dev zlib1g-dev \
-            libjpeg-dev libpng-dev
+            libjpeg-dev libpng-dev libstdc++6 libncurses5 libtinfo5
 
       - name: Install Buildozer and dependencies
         run: |
           pip install --upgrade pip
-          pip install buildozer cython virtualenv
+          pip install buildozer==1.5.0 cython virtualenv
 
       - name: Prepare Android SDK & NDK
         run: |
           mkdir -p $HOME/.buildozer/android/platform
           cd $HOME/.buildozer/android/platform
 
-          # Скачать инструменты командной строки
+          # Скачать SDK tools
           wget https://dl.google.com/android/repository/commandlinetools-linux-10406996_latest.zip -O cmdline-tools.zip
           unzip -q cmdline-tools.zip -d android-sdk
           mkdir -p android-sdk/cmdline-tools/latest
@@ -49,35 +49,30 @@ jobs:
           yes | sdkmanager \
             "platform-tools" \
             "platforms;android-33" \
-            "build-tools;33.0.2" \
-            "ndk;25.2.9519653"
+            "build-tools;33.0.2"
 
-          # Симлинк для совместимости с Buildozer
-          mkdir -p $ANDROID_SDK_ROOT/tools/bin
-          ln -sf $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager $ANDROID_SDK_ROOT/tools/bin/sdkmanager
+          # ✅ Используем стабильную версию NDK 25b
+          wget https://dl.google.com/android/repository/android-ndk-r25b-linux.zip
+          unzip -q android-ndk-r25b-linux.zip
+          mv android-ndk-r25b android-ndk-r25b-folder
+          mv android-ndk-r25b-folder $HOME/.buildozer/android/platform/android-ndk-r25b
 
-      - name: Verify environment
+      - name: Export environment variables
         run: |
-          echo "ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk" >> $GITHUB_ENV
           echo "ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk" >> $GITHUB_ENV
-          echo "ANDROID_NDK_HOME=$HOME/.buildozer/android/platform/android-sdk/ndk/25.2.9519653" >> $GITHUB_ENV
+          echo "ANDROID_NDK_HOME=$HOME/.buildozer/android/platform/android-ndk-r25b" >> $GITHUB_ENV
           echo "JAVA_HOME=$(dirname $(dirname $(readlink -f $(which javac))))" >> $GITHUB_ENV
-          echo "PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools" >> $GITHUB_ENV
+          echo "PATH=$PATH:$HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin:$HOME/.buildozer/android/platform/android-sdk/platform-tools" >> $GITHUB_ENV
 
-      - name: Debug environment
+      - name: Verify SDK installation
         run: |
-          echo "JAVA_HOME=$JAVA_HOME"
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
           sdkmanager --list | head -n 30
 
       - name: Build APK (Мониторинг сервера HA)
         run: |
-          export ANDROIDSDK="$HOME/.buildozer/android/platform/android-sdk"
-          export ANDROIDNDK="$ANDROIDSDK/ndk/25.2.9519653"
-          export PATH=$PATH:$ANDROIDSDK/platform-tools:$ANDROIDSDK/cmdline-tools/latest/bin
           mkdir -p ~/.buildozer
           echo "Building APK..."
-          buildozer -v android debug log_level=2
+          buildozer android debug log_level=2
 
       - name: Upload built APK
         uses: actions/upload-artifact@v4
