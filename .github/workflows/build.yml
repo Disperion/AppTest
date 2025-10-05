@@ -8,18 +8,19 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04  # ✅ Используем стабильную Ubuntu 22.04 (всё работает с Buildozer)
+    runs-on: ubuntu-22.04
 
     steps:
       - name: 🧩 Checkout repository
         uses: actions/checkout@v4
 
-      - name: ☕ Install dependencies
+      - name: ☕ Install dependencies (Python + JDK 17)
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            wget unzip openjdk-17-jdk python3 python3-pip git \
-            libncurses5 libtinfo5
+          sudo apt-get install -y software-properties-common
+          sudo apt-get install -y python3 python3-pip wget unzip git libncurses5 libtinfo5
+          sudo apt-get install -y openjdk-17-jdk
+          java -version
 
       - name: 💾 Cache Buildozer & SDK
         uses: actions/cache@v4
@@ -41,6 +42,8 @@ jobs:
           unzip -qo cmdline-tools.zip -d cmdline-tools
           mkdir -p cmdline-tools/latest
           mv -f cmdline-tools/cmdline-tools/* cmdline-tools/latest/ || true
+          export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+          export PATH=$JAVA_HOME/bin:$PATH
           yes | cmdline-tools/latest/bin/sdkmanager --sdk_root=$HOME/android-sdk --licenses
           yes | cmdline-tools/latest/bin/sdkmanager --sdk_root=$HOME/android-sdk \
             "platform-tools" "platforms;android-33" "build-tools;36.0.0"
@@ -65,7 +68,8 @@ jobs:
             -v $HOME/android-sdk:/root/.buildozer/android/platform/android-sdk \
             -v $HOME/.buildozer:/root/.buildozer \
             -w /app \
-            --env DOCKER_BUILDKIT=0 \
+            --env ANDROIDSDK=$HOME/android-sdk \
+            --env JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 \
             kivy/buildozer:latest \
             buildozer -v android debug
 
