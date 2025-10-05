@@ -10,21 +10,20 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    env:
+      DOCKER_BUILDKIT: 0
+      COMPOSE_DOCKER_CLI_BUILD: 0
+
     steps:
       - name: 🧩 Checkout repository
         uses: actions/checkout@v4
-
-      - name: ⚙️ Disable Docker BuildKit (fix for unsupported media type)
-        run: |
-          echo "DOCKER_BUILDKIT=0" >> $GITHUB_ENV
-          echo "COMPOSE_DOCKER_CLI_BUILD=0" >> $GITHUB_ENV
 
       - name: ☕ Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y wget unzip openjdk-17-jdk python3 python3-pip git
 
-      - name: 💾 Restore Buildozer & SDK cache
+      - name: 💾 Cache Buildozer & SDK
         uses: actions/cache@v4
         with:
           path: |
@@ -50,7 +49,7 @@ jobs:
           yes | cmdline-tools/latest/bin/sdkmanager --sdk_root=$HOME/android-sdk \
             "platform-tools" "platforms;android-33" "build-tools;36.0.0"
 
-      - name: 🔍 Verify AIDL
+      - name: 🧰 Verify AIDL
         run: |
           if [ ! -f "$HOME/android-sdk/build-tools/36.0.0/aidl" ]; then
             echo "❌ AIDL not found — SDK installation failed"
@@ -58,15 +57,21 @@ jobs:
           fi
           echo "✅ AIDL installed successfully"
 
-      - name: 🐍 Build APK with Buildozer
+      - name: 🐍 Build APK with Buildozer (Docker)
         run: |
+          export DOCKER_BUILDKIT=0
+          export COMPOSE_DOCKER_CLI_BUILD=0
+          echo "🚧 Building APK..."
+          docker pull kivy/buildozer:latest
           docker run --rm \
             -e DOCKER_BUILDKIT=0 \
+            -e ANDROIDSDK="$HOME/android-sdk" \
             -v ${{ github.workspace }}:/app \
-            -w /app \
             -v $HOME/android-sdk:/root/.buildozer/android/platform/android-sdk \
             -v $HOME/.buildozer:/root/.buildozer \
-            kivy/buildozer:latest buildozer -v android debug
+            -w /app \
+            kivy/buildozer:latest \
+            buildozer -v android debug
 
       - name: 🚀 Upload APK artifact
         uses: actions/upload-artifact@v4
