@@ -1,77 +1,75 @@
-name: Build APK (Мониторинг сервера HA)
+name: Build APK (Kivy / Buildozer)
 
 on:
   push:
-    branches:
-      - main
+    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
 
     steps:
-      - name: 🧩 Checkout repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: ☕ Install dependencies
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y wget unzip openjdk-17-jdk python3 python3-pip git libncurses5 libtinfo5
-
-      - name: 💾 Cache Buildozer & SDK
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.buildozer
-            ~/.gradle
-            ~/.android
-            ~/android-sdk
-          key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
-          restore-keys: |
-            ${{ runner.os }}-buildozer-
-
-      - name: 📦 Install Android SDK
+          sudo apt-get install -y \
+            git zip unzip openjdk-17-jdk python3-pip \
+            libffi-dev libssl-dev libsqlite3-dev zlib1g-dev \
+            libjpeg-dev libpng-dev
+      - name: Install Buildozer and dependencies
         run: |
-          mkdir -p "$HOME/android-sdk/cmdline-tools"
-          cd "$HOME/android-sdk/cmdline-tools"
-          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O tools.zip
-          unzip -q tools.zip -d latest
-          export ANDROID_SDK_ROOT=$HOME/android-sdk
-          export PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH
-          yes | sdkmanager --sdk_root=$ANDROID_SDK_ROOT --licenses
-          yes | sdkmanager --sdk_root=$ANDROID_SDK_ROOT \
-            "platform-tools" "platforms;android-33" "build-tools;36.0.0"
-
-      - name: 🧰 Verify AIDL
+          pip install --upgrade pip
+          pip install buildozer cython virtualenv
+      - name: Prepare Android SDK & NDK
         run: |
-          if [ ! -f "$HOME/android-sdk/build-tools/36.0.0/aidl" ]; then
-            echo "❌ AIDL not found — SDK installation failed"
-            exit 1
-          fi
-          echo "✅ AIDL installed successfully"
-
-      - name: 🐍 Build APK with Buildozer (Docker)
-        env:
-          ANDROIDSDK: /root/.buildozer/android/platform/android-sdk
-          ANDROIDNDK: /root/.buildozer/android/platform/android-ndk-r25b
-          DOCKER_BUILDKIT: 0
+          mkdir -p $HOME/.buildozer/android/platform
+          cd $HOME/.buildozer/android/platform
+          # Скачать инструменты командной строки
+          wget https://dl.google.com/android/repository/commandlinetools-linux-10406996_latest.zip -O cmdline-tools.zip
+          unzip -q cmdline-tools.zip -d android-sdk
+          mkdir -p android-sdk/cmdline-tools/latest
+          mv android-sdk/cmdline-tools/* android-sdk/cmdline-tools/latest/ || true
+          export ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
+          export PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:$PATH
+          yes | sdkmanager --licenses
+          yes | sdkmanager \
+            "platform-tools" \
+            "platforms;android-33" \
+            "build-tools;33.0.2" \
+            "ndk;25.2.9519653"
+          # Симлинк для совместимости с Buildozer
+          mkdir -p $ANDROID_SDK_ROOT/tools/bin
+          ln -sf $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager $ANDROID_SDK_ROOT/tools/bin/sdkmanager
+      - name: Verify environment
         run: |
-          echo "🚧 Building APK..."
-          docker pull kivy/buildozer:latest
-          docker run --rm \
-            -v ${{ github.workspace }}:/app \
-            -v $HOME/android-sdk:/root/.buildozer/android/platform/android-sdk \
-            -v $HOME/.buildozer:/root/.buildozer \
-            -w /app \
-            --env ANDROIDSDK=/root/.buildozer/android/platform/android-sdk \
-            --env ANDROIDNDK=/root/.buildozer/android/platform/android-ndk-r25b \
-            --env DOCKER_BUILDKIT=0 \
-            kivy/buildozer:latest \
-            buildozer -v android debug
-
-      - name: 🚀 Upload APK artifact
+          echo "ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk" >> $GITHUB_ENV
+          echo "ANDROID_NDK_HOME=$HOME/.buildozer/android/platform/android-sdk/ndk/25.2.9519653" >> $GITHUB_ENV
+          echo "JAVA_HOME=$(dirname $(dirname $(readlink -f $(which javac))))" >> $GITHUB_ENV
+          echo "PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools" >> $GITHUB_ENV
+      - name: Debug environment
+        run: |
+          echo "JAVA_HOME=$JAVA_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          sdkmanager --list | head -n 30
+      - name: Build APK (Мониторинг сервера HA)
+        run: |
+          export ANDROIDSDK="$HOME/.buildozer/android/platform/android-sdk"
+          export ANDROIDNDK="$ANDROIDSDK/ndk/25.2.9519653"
+          export PATH=$PATH:$ANDROIDSDK/platform-tools:$ANDROIDSDK/cmdline-tools/latest/bin
+          mkdir -p ~/.buildozer
+          echo "Building APK..."
+          buildozer -v android debug log_level=2
+      - name: Upload built APK
         uses: actions/upload-artifact@v4
         with:
-          name: monitoring-ha-apk
-          path: bin/*.apk
+          name: monitoring_ha-
