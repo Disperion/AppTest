@@ -14,12 +14,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install system dependencies
+      - name: Disable Docker BuildKit (fix for unsupported media type)
+        run: |
+          echo "DOCKER_BUILDKIT=0" >> $GITHUB_ENV
+          echo "COMPOSE_DOCKER_CLI_BUILD=0" >> $GITHUB_ENV
+
+      - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y wget unzip openjdk-17-jdk python3 python3-pip git
 
-      - name: Install Android SDK and accept licenses
+      - name: Install Android SDK
         run: |
           mkdir -p "$HOME/android-sdk"
           cd "$HOME/android-sdk"
@@ -33,7 +38,7 @@ jobs:
       - name: Verify AIDL installation
         run: |
           if [ ! -f "$HOME/android-sdk/build-tools/36.0.0/aidl" ]; then
-            echo "AIDL not found — SDK installation failed"
+            echo "❌ AIDL not found — SDK installation failed"
             exit 1
           fi
           echo "✅ AIDL installed successfully"
@@ -41,10 +46,11 @@ jobs:
       - name: Build APK with Buildozer
         run: |
           docker run --rm \
+            -e DOCKER_BUILDKIT=0 \
             -v ${{ github.workspace }}:/app \
             -w /app \
             -v $HOME/android-sdk:/root/.buildozer/android/platform/android-sdk \
-            kivy/buildozer:latest buildozer -v android debug
+            kivy/buildozer:stable buildozer -v android debug
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
