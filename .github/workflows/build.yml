@@ -21,6 +21,9 @@ jobs:
             wget unzip openjdk-17-jdk python3 python3-pip git \
             libncurses5 libtinfo5
 
+      - name: 🔬 Проверка версии Java
+        run: java -version
+
       - name: 💾 Кэширование Buildozer и Android SDK
         uses: actions/cache@v4
         with:
