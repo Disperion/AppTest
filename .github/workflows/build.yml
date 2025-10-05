@@ -10,18 +10,20 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    env:
-      DOCKER_BUILDKIT: 0
-      COMPOSE_DOCKER_CLI_BUILD: 0
-
     steps:
       - name: 🧩 Checkout repository
         uses: actions/checkout@v4
 
-      - name: ☕ Install system dependencies
+      - name: ☕ Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y wget unzip openjdk-17-jdk python3 python3-pip git
+
+      - name: 🧱 Disable Docker BuildKit system-wide
+        run: |
+          echo '{"features": {"buildkit": false}}' | sudo tee /etc/docker/daemon.json
+          sudo systemctl restart docker
+          echo "✅ BuildKit disabled globally"
 
       - name: 💾 Cache Buildozer & SDK
         uses: actions/cache@v4
@@ -58,13 +60,12 @@ jobs:
           echo "✅ AIDL installed successfully"
 
       - name: 🐍 Build APK with Buildozer (Docker)
+        env:
+          DOCKER_BUILDKIT: 0
         run: |
-          export DOCKER_BUILDKIT=0
-          export COMPOSE_DOCKER_CLI_BUILD=0
           echo "🚧 Building APK..."
           docker pull kivy/buildozer:latest
           docker run --rm \
-            -e DOCKER_BUILDKIT=0 \
             -e ANDROIDSDK="$HOME/android-sdk" \
             -v ${{ github.workspace }}:/app \
             -v $HOME/android-sdk:/root/.buildozer/android/platform/android-sdk \
