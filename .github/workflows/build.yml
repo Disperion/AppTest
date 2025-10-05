@@ -8,20 +8,20 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04  # Используем последнюю стабильную версию Ubuntu
+    runs-on: ubuntu-22.04  # Используем самую свежую стабильную версию Ubuntu
 
     steps:
-      - name: 🧩 Checkout репозитория
+      - name: 🧩 Скачать исходники из репозитория
         uses: actions/checkout@v4
 
-      - name: ☕ Установка зависимостей
+      - name: ☕ Установить зависимости
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             wget unzip openjdk-17-jdk python3 python3-pip git \
             libncurses5 libtinfo5
 
-      - name: 💾 Кэширование Buildozer и Android SDK
+      - name: 💾 Кэшировать Buildozer и Android SDK
         uses: actions/cache@v4
         with:
           path: |
@@ -33,7 +33,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-buildozer-
 
-      - name: 📦 Установка Android SDK
+      - name: 📦 Установить Android SDK
         run: |
           mkdir -p "$HOME/android-sdk"
           cd "$HOME/android-sdk"
@@ -46,20 +46,20 @@ jobs:
           yes | cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_SDK_ROOT \
             "platform-tools" "platforms;android-33" "build-tools;36.0.0"
 
-      - name: 🧠 Проверка наличия AIDL
+      - name: 🧠 Проверить наличие AIDL
         run: |
           if [ ! -f "$HOME/android-sdk/build-tools/36.0.0/aidl" ]; then
-            echo "❌ Файл AIDL отсутствует — установка SDK завершилась неудачей."
+            echo "❌ Файл AIDL отсутствует — установка SDK завершилась неудачно."
             exit 1
           fi
           echo "✅ AIDL установлен успешно!"
 
-      - name: 🛠️ Сборка APK с помощью Buildozer (Docker)
+      - name: 🛠️ Собрать APK с помощью Buildozer (Docker)
         env:
           DOCKER_BUILDKIT: 0
           BUILDKIT_PROGRESS: plain
         run: |
-          echo "🚧 Запускаем процесс сборки APK..."
+          echo "🚧 Начинаем сборку APK..."
           docker pull kivy/buildozer:latest
           docker run --rm \
             -v ${{ github.workspace }}:/app \
@@ -70,7 +70,7 @@ jobs:
             kivy/buildozer:latest \
             buildozer -v android debug
 
-      - name: 🚀 Загружаем готовый APK
+      - name: 🚀 Загрузить готовый APK
         uses: actions/upload-artifact@v4
         with:
           name: monitoring-ha-apk
