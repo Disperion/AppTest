@@ -1,4 +1,4 @@
-name: Build APK (Мониторинг сервера HA)
+name: Build APK (Мониторинг сервера HA — без Docker)
 
 on:
   push:
@@ -11,73 +11,56 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 🧩 Checkout repository
+      - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: ☕ Install dependencies
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y wget unzip openjdk-17-jdk python3 python3-pip git
+          sudo apt-get install -y \
+            git zip unzip openjdk-17-jdk python3-pip \
+            libffi-dev libssl-dev libsqlite3-dev zlib1g-dev \
+            libjpeg-dev libpng-dev libncurses5 libtinfo5
 
-      # Отключаем BuildKit на уровне окружения и демона Docker
-      - name: 🧱 Disable Docker BuildKit globally
+      - name: Install Buildozer + dependencies
         run: |
-          echo '{"features":{"buildkit":false}}' | sudo tee /etc/docker/daemon.json
-          sudo systemctl restart docker
-          echo "✅ BuildKit disabled globally"
-        shell: bash
+          pip install --upgrade pip
+          pip install buildozer==1.5.0 cython virtualenv
 
-      - name: 💾 Cache Buildozer & SDK
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.buildozer
-            ~/.gradle
-            ~/.android
-            ~/android-sdk
-          key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
-          restore-keys: |
-            ${{ runner.os }}-buildozer-
-
-      - name: 📦 Install Android SDK
+      - name: Install Android SDK & Tools
         run: |
-          mkdir -p "$HOME/android-sdk"
-          cd "$HOME/android-sdk"
-          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdline-tools.zip
+          mkdir -p $HOME/android-sdk
+          cd $HOME/android-sdk
+          wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdline-tools.zip
           unzip -qo cmdline-tools.zip -d cmdline-tools
           mkdir -p cmdline-tools/latest
-          mv -f cmdline-tools/cmdline-tools/* cmdline-tools/latest/ || true
-          yes | cmdline-tools/latest/bin/sdkmanager --sdk_root=$HOME/android-sdk --licenses
-          yes | cmdline-tools/latest/bin/sdkmanager --sdk_root=$HOME/android-sdk \
+          mv cmdline-tools/cmdline-tools/* cmdline-tools/latest/ || true
+          export ANDROID_SDK_ROOT=$HOME/android-sdk
+          export PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:$PATH
+          yes | sdkmanager --sdk_root=$ANDROID_SDK_ROOT --licenses
+          yes | sdkmanager --sdk_root=$ANDROID_SDK_ROOT \
             "platform-tools" "platforms;android-33" "build-tools;36.0.0"
-
-      - name: 🧰 Verify AIDL
+      
+      - name: Verify AIDL
         run: |
           if [ ! -f "$HOME/android-sdk/build-tools/36.0.0/aidl" ]; then
-            echo "❌ AIDL not found — SDK installation failed"
+            echo "AIDL not found — SDK install failed"
             exit 1
           fi
-          echo "✅ AIDL installed successfully"
 
-      - name: 🐍 Build APK with Buildozer (Docker)
-        env:
-          DOCKER_BUILDKIT: 0
-          BUILDKIT_PROGRESS: plain
+      - name: Build APK
         run: |
-          echo "🚧 Building APK..."
-          docker pull --disable-content-trust kivy/buildozer:latest
-          docker run --rm \
-            -e ANDROIDSDK="$HOME/android-sdk" \
-            -v ${{ github.workspace }}:/app \
-            -v $HOME/android-sdk:/root/.buildozer/android/platform/android-sdk \
-            -v $HOME/.buildozer:/root/.buildozer \
-            -w /app \
-            --env DOCKER_BUILDKIT=0 \
-            kivy/buildozer:latest \
-            buildozer -v android debug
+          export ANDROIDSDK=$HOME/android-sdk
+          export ANDROID_SDK_ROOT=$HOME/android-sdk
+          buildozer -v android debug
 
-      - name: 🚀 Upload APK artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: monitoring-ha-apk
+          name: monitoring_ha_apk
           path: bin/*.apk
