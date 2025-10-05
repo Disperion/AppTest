@@ -34,15 +34,16 @@ jobs:
             ~/.gradle
             ~/.android
             ~/android-sdk
-          key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}  # уникальный ключ кэша
+          key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
           restore-keys: |
-            ${{ runner.os }}-buildozer-  # резервный ключ для восстановления кэша
+            ${{ runner.os }}-buildozer-
 
       - name: 📦 Установка Android SDK
         run: |
           mkdir -p "$HOME/android-sdk"
           cd "$HOME/android-sdk"
-          curl -L https://dl.google.com/android/repository/commandlinetools-linux-latest.zip > cmdline-tools.zip
+          rm -f cmdline-tools.zip  # Удаляем предыдущий файл, если существует
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-latest.zip -O cmdline-tools.zip
           unzip -qo cmdline-tools.zip -d cmdline-tools
           mkdir -p cmdline-tools/latest
           mv -f cmdline-tools/cmdline-tools/* cmdline-tools/latest/ || true
