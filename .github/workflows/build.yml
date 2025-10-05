@@ -8,10 +8,10 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04  # Используем последнюю стабильную версию Ubuntu
+    runs-on: ubuntu-22.04  # Используем современную версию Ubuntu
 
     steps:
-      - name: 🧩 Checkout репозитория
+      - name: 🧩 Получение исходников из репозитория
         uses: actions/checkout@v4
 
       - name: ☕ Установка зависимостей
@@ -46,13 +46,13 @@ jobs:
           yes | cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_SDK_ROOT \
             "platform-tools" "platforms;android-33" "build-tools;36.0.0"
 
-      - name: 🧠 Проверка наличия AIDL
+      - name: 🧠 Проверка инструмента AIDL
         run: |
           if [ ! -f "$HOME/android-sdk/build-tools/36.0.0/aidl" ]; then
-            echo "❌ Файл AIDL отсутствует — установка SDK завершилась неудачей."
+            echo "❌ Инструмент AIDL не найден — установка SDK завершилась ошибкой."
             exit 1
           fi
-          echo "✅ AIDL установлен успешно!"
+          echo "✅ Инструмент AIDL установлен успешно!"
 
       - name: 🛠️ Сборка APK с помощью Buildozer (Docker)
         env:
@@ -70,7 +70,7 @@ jobs:
             kivy/buildozer:latest \
             buildozer -v android debug
 
-      - name: 🚀 Загружаем готовый APK
+      - name: 🚀 Загрузка готового APK
         uses: actions/upload-artifact@v4
         with:
           name: monitoring-ha-apk
