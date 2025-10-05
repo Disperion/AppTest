@@ -22,7 +22,9 @@ jobs:
             libncurses5 libtinfo5
 
       - name: 🔬 Проверка версии Java
-        run: java -version
+        run: |
+          export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+          $JAVA_HOME/bin/java -version
 
       - name: 💾 Кэширование Buildozer и Android SDK
         uses: actions/cache@v4
@@ -45,8 +47,9 @@ jobs:
           mkdir -p cmdline-tools/latest
           mv -f cmdline-tools/cmdline-tools/* cmdline-tools/latest/ || true
           export ANDROID_SDK_ROOT=$HOME/android-sdk
-          yes | cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_SDK_ROOT --licenses
-          yes | cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_SDK_ROOT \
+          export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin
+          yes | sdkmanager --sdk_root=$ANDROID_SDK_ROOT --licenses
+          yes | sdkmanager --sdk_root=$ANDROID_SDK_ROOT \
             "platform-tools" "platforms;android-33" "build-tools;36.0.0"
 
       - name: 🧠 Проверка наличия AIDL
