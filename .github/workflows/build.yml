@@ -1,83 +1,18 @@
-name: Build APK (Мониторинг сервера HA)
-
-on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
-
-jobs:
-  build:
-    runs-on: ubuntu-22.04  # Используем стабильную версию Ubuntu
-
-    steps:
-      - name: 🧩 Получение исходников из репозитория
-        uses: actions/checkout@v4
-
-      - name: ☕ Установка зависимостей
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            wget unzip openjdk-17-jdk python3 python3-pip git \
-            libncurses5 libtinfo5
-
-      - name: 🔬 Проверка версии Java
-        run: |
-          export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
-          $JAVA_HOME/bin/java -version
-
-      - name: 💾 Кэширование Buildozer и Android SDK
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.buildozer
-            ~/.gradle
-            ~/.android
-            ~/android-sdk
-          key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
-          restore-keys: |
-            ${{ runner.os }}-buildozer-
-
-      - name: 📦 Установка Android SDK
-        run: |
-          mkdir -p "$HOME/android-sdk"
-          cd "$HOME/android-sdk"
-          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdline-tools.zip
-          unzip -qo cmdline-tools.zip -d cmdline-tools
-          mkdir -p cmdline-tools/latest
-          mv -f cmdline-tools/cmdline-tools/* cmdline-tools/latest/ || true
-          export ANDROID_SDK_ROOT=$HOME/android-sdk
-          export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin
-          yes | sdkmanager --sdk_root=$ANDROID_SDK_ROOT --licenses
-          yes | sdkmanager --sdk_root=$ANDROID_SDK_ROOT \
-            "platform-tools" "platforms;android-33" "build-tools;36.0.0"
-
-      - name: 🧠 Проверка наличия AIDL
-        run: |
-          if [ ! -f "$HOME/android-sdk/build-tools/36.0.0/aidl" ]; then
-            echo "❌ AIDL не найден — установка SDK завершилась неудачей."
-            exit 1
-          fi
-          echo "✅ AIDL установлен успешно!"
-
-      - name: 🛠️ Сборка APK с помощью Buildozer (Docker)
-        env:
-          DOCKER_BUILDKIT: 0
-          BUILDKIT_PROGRESS: plain
-        run: |
-          echo "🚧 Запускаем процесс сборки APK..."
-          docker pull kivy/buildozer:latest
-          docker run --rm \
-            -v ${{ github.workspace }}:/app \
-            -v $HOME/android-sdk:/root/.buildozer/android/platform/android-sdk \
-            -v $HOME/.buildozer:/root/.buildozer \
-            -w /app \
-            --env DOCKER_BUILDKIT=0 \
-            kivy/buildozer:latest \
-            buildozer -v android debug
-
-      - name: 🚀 Загрузка готового APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: monitoring-ha-apk
-          path: bin/*.apk
+- name: 🛠️ Сборка APK с помощью Buildozer (Docker)
+  env:
+    DOCKER_BUILDKIT: 0
+    BUILDKIT_PROGRESS: plain
+  run: |
+    echo "🚧 Запускаем процесс сборки APK..."
+    docker pull kivy/buildozer:latest
+    docker run --rm \
+      -v ${{ github.workspace }}:/app \
+      -v $HOME/android-sdk:/root/.buildozer/android/platform/android-sdk \
+      -v $HOME/.buildozer:/root/.buildozer \
+      -w /app \
+      --env DOCKER_BUILDKIT=0 \
+      kivy/buildozer:latest \
+      bash -c '
+        java -version &&
+        buildozer -v android debug
+      '
