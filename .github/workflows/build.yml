@@ -1,4 +1,4 @@
-name: Build APK with Buildozer
+name: Build APK (Мониторинг сервера HA)
 
 on:
   push:
@@ -11,31 +11,46 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: 🧩 Checkout repository
         uses: actions/checkout@v4
 
-      - name: Disable Docker BuildKit (fix for unsupported media type)
+      - name: ⚙️ Disable Docker BuildKit (fix for unsupported media type)
         run: |
           echo "DOCKER_BUILDKIT=0" >> $GITHUB_ENV
           echo "COMPOSE_DOCKER_CLI_BUILD=0" >> $GITHUB_ENV
 
-      - name: Install dependencies
+      - name: ☕ Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y wget unzip openjdk-17-jdk python3 python3-pip git
 
-      - name: Install Android SDK
+      - name: 💾 Restore Buildozer & SDK cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.buildozer
+            ~/.gradle
+            ~/.android
+            ~/android-sdk
+          key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
+          restore-keys: |
+            ${{ runner.os }}-buildozer-
+
+      - name: 📦 Install Android SDK
         run: |
           mkdir -p "$HOME/android-sdk"
           cd "$HOME/android-sdk"
-          wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdline-tools.zip
+          if [ ! -f "cmdline-tools.zip" ]; then
+            wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdline-tools.zip
+          fi
           unzip -o cmdline-tools.zip -d cmdline-tools
-          mv cmdline-tools/cmdline-tools cmdline-tools/latest
+          mkdir -p cmdline-tools/latest
+          mv -f cmdline-tools/cmdline-tools/* cmdline-tools/latest/ || true
           yes | cmdline-tools/latest/bin/sdkmanager --sdk_root=$HOME/android-sdk --licenses
           yes | cmdline-tools/latest/bin/sdkmanager --sdk_root=$HOME/android-sdk \
             "platform-tools" "platforms;android-33" "build-tools;36.0.0"
 
-      - name: Verify AIDL installation
+      - name: 🔍 Verify AIDL
         run: |
           if [ ! -f "$HOME/android-sdk/build-tools/36.0.0/aidl" ]; then
             echo "❌ AIDL not found — SDK installation failed"
@@ -43,17 +58,18 @@ jobs:
           fi
           echo "✅ AIDL installed successfully"
 
-      - name: Build APK with Buildozer
+      - name: 🐍 Build APK with Buildozer
         run: |
           docker run --rm \
             -e DOCKER_BUILDKIT=0 \
             -v ${{ github.workspace }}:/app \
             -w /app \
             -v $HOME/android-sdk:/root/.buildozer/android/platform/android-sdk \
+            -v $HOME/.buildozer:/root/.buildozer \
             kivy/buildozer:latest buildozer -v android debug
 
-      - name: Upload APK artifact
+      - name: 🚀 Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug
+          name: monitoring-ha-apk
           path: bin/*.apk
